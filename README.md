@@ -1,4 +1,4 @@
-# ReadyPulse 🫀
+# ReadyPulse 
 ### Making Change Human
 
 > *"AI that scaffolds human judgment. Not replaces it."*
