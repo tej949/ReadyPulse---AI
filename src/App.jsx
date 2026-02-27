@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const GEMINI_API_KEY = "AIzaSyDRNWazfmC46U2UV6lda4MBzVX28NxktA0";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 const USERS = [
   { id: "emp001", password: "pass001", role: "employee", name: "Aryan Mehta",   avatar: "AM" },
@@ -74,7 +72,7 @@ async function callGemini(history, userMessage) {
     { role: "user", parts: [{ text: userMessage }] },
   ];
 
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch("/api/gemini", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
