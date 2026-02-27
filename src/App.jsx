@@ -63,14 +63,45 @@ const saveScenario  = (s) => store.set("rp_scenario", s);
 // ─── GEMINI ───────────────────────────────────────────────────────────────────
 async function callGemini(history, userMessage) {
   const contents = [
-    { role: "user",  parts: [{ text: SYSTEM_PROMPT }] },
-    { role: "model", parts: [{ text: "Understood. I'm ReadyPulse — your empathetic thinking partner." }] },
-    ...history.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-    { role: "user",  parts: [{ text: userMessage }] },
+    { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
+    { role: "model", parts: [{ text: "Understood. I'm ReadyPulse. I will always: respond with empathy first, naturally reference one of the Six Pillars, never tell the user what to do, ask one reflective question at the end, and tag the pillar on the last line as PILLAR: [name]." }] },
+    ...history
+      .filter(m => m.role === "user" || m.role === "assistant")
+      .map(m => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+    { role: "user", parts: [{ text: userMessage }] },
   ];
-  const res  = await fetch(GEMINI_URL, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ contents, generationConfig:{ temperature:0.8, maxOutputTokens:400 } }) });
+
+  const res = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents,
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 500,
+        topP: 0.95,
+        topK: 40,
+      },
+    }),
+  });
+
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm here with you. Could you tell me more?";
+
+  if (data.error) {
+    console.error("Gemini error:", data.error);
+    return "I'm having trouble connecting right now. Could you share what's on your mind again?\n\nPILLAR: Empathy";
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    console.error("Unexpected response:", JSON.stringify(data));
+    return "I'm here with you. Could you tell me a little more about what you're feeling?\n\nPILLAR: Vulnerability";
+  }
+
+  return text;
 }
 const parsePillar = (t) => { const m = t.match(/PILLAR:\s*(Inclusion|Empathy|Vulnerability|Trust|Empowerment|Forgiveness)/i); return m ? m[1] : null; };
 const cleanText   = (t) => t.replace(/\nPILLAR:.*$/m, "").trim();
