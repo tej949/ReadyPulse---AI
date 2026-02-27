@@ -62,7 +62,7 @@ const saveScenario  = (s) => store.set("rp_scenario", s);
 async function callGemini(history, userMessage) {
   const contents = [
     { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
-    { role: "model", parts: [{ text: "Understood. I'm ReadyPulse. I will always: respond with empathy first, naturally reference one of the Six Pillars, never tell the user what to do, ask one reflective question at the end, and tag the pillar on the last line as PILLAR: [name]." }] },
+    { role: "model", parts: [{ text: "Understood. I'm ReadyPulse..." }] },
     ...history
       .filter(m => m.role === "user" || m.role === "assistant")
       .map(m => ({
@@ -72,7 +72,7 @@ async function callGemini(history, userMessage) {
     { role: "user", parts: [{ text: userMessage }] },
   ];
 
-  const res = await fetch("/api/gemini", {
+  const res = await fetch("/api/gemini", {   // ← calls YOUR proxy, not Gemini directly
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -80,24 +80,16 @@ async function callGemini(history, userMessage) {
       generationConfig: {
         temperature: 0.9,
         maxOutputTokens: 500,
-        topP: 0.95,
-        topK: 40,
       },
     }),
   });
 
   const data = await res.json();
 
-  if (data.error) {
-    console.error("Gemini error:", data.error);
-    return "I'm having trouble connecting right now. Could you share what's on your mind again?\n\nPILLAR: Empathy";
-  }
+  if (data.error) throw new Error(data.error.message);
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    console.error("Unexpected response:", JSON.stringify(data));
-    return "I'm here with you. Could you tell me a little more about what you're feeling?\n\nPILLAR: Vulnerability";
-  }
+  if (!text) throw new Error("No text in response");
 
   return text;
 }
@@ -480,8 +472,13 @@ function EmployeeChat({ user }) {
       const responses = getResponses();
       responses[user.id] = { sentiment:sentimentFromMessages(final), respondedAt:new Date().toISOString() };
       saveResponses(responses);
-    } catch {
-      setMessages(prev => [...prev, { role:"assistant", content:"I'm having trouble connecting right now. Please try again.", pillar:null }]);
+    } catch (err) {
+      console.error("Send error:", err);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: `Error: ${err.message}. Check the browser console (F12) for details.`,
+        pillar: null
+      }]);
     }
     setLoading(false);
   };
